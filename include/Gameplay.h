@@ -24,6 +24,9 @@ private:
 	Cat cat;
 	list<Item> items;
 	list<Asteroid> asteroids;
+	double floatRadius;
+	double movementBorderPadding;
+	double cameraSpeed;
 
 	Rect getAllowedRect();
 	void spawnItem();

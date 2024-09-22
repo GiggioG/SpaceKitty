@@ -43,9 +43,9 @@ enum class SOUND
 
 struct Drawable {
     SDL_Texture* texture = nullptr;
-    SDL_Rect rect;
+    SDL_Rect rect = {0, 0, 0, 0};
     SDL_RendererFlip flip = SDL_FLIP_NONE;
-    double angle;
+    double angle = 0;
 };
 
 enum class GameState {

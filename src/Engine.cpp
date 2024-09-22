@@ -111,7 +111,7 @@ bool collTriangleTriangle(Triangle a, Triangle b){
     }
     return false;
 }
-double2 rotatePointAroundCeter(double2 p, double2 o, double angle){
+double2 rotatePointAroundCenter(double2 p, double2 o, double angle){
     double a = angle2Points(o, p), r = distance(o, p);
     a += angle;
     return {o.x + cos(a)*r, o.y + sin(a)*r};
@@ -120,10 +120,10 @@ pair<Triangle, Triangle> rotatedRectToTriangles(RotatedRect r1){
     double2 p1 = {r1.rect.x, r1.rect.y}, p2 = {r1.rect.x+r1.rect.w, r1.rect.y};
     double2 p3 = {r1.rect.x, r1.rect.y+r1.rect.h}, p4 = {r1.rect.x+r1.rect.w, r1.rect.y+r1.rect.h};
     double2 c = {p1.x/2 + p4.x/2, p1.y/2 + p4.y/2};
-    p1 = rotatePointAroundCeter(p1, c, r1.angle);
-    p2 = rotatePointAroundCeter(p2, c, r1.angle);
-    p3 = rotatePointAroundCeter(p3, c, r1.angle);
-    p4 = rotatePointAroundCeter(p4, c, r1.angle);
+    p1 = rotatePointAroundCenter(p1, c, r1.angle);
+    p2 = rotatePointAroundCenter(p2, c, r1.angle);
+    p3 = rotatePointAroundCenter(p3, c, r1.angle);
+    p4 = rotatePointAroundCenter(p4, c, r1.angle);
     // double r = distance(c, p1);
     // double a1 = angle2Points(c, p1), a2 = angle2Points(c, p2), a3 = angle2Points(c, p3), a4 = angle2Points(c, p4);
     // a1 += r1.angle;

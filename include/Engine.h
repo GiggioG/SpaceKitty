@@ -34,4 +34,4 @@ bool collRotatedRectRotatedRect(RotatedRect r1, RotatedRect r2);
 bool checkInOffBounds(SDL_Rect rect, int screenWidth, int screenHeight);
 int rangeMap(int from_low, int from_high, int to_low, int to_high, int val);
 double randToOne();
-double2 rotatePointAroundCeter(double2 p, double2 o, double angle);
+double2 rotatePointAroundCenter(double2 p, double2 o, double angle);

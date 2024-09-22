@@ -14,15 +14,18 @@ void Asteroid::init(SDL_Rect spawnRect) {
 		rand() % spawnRect.w,
 		rand() % spawnRect.h
 	};
+	loc.angle = randToOne() * 2 * M_PI;
+	loc.rect.w = cfgm->cfg["ASTEROID_DIAMETER"].i;
+	loc.rect.h = loc.rect.w;
 	loc.rect.x = centerPos.x + spawnRect.x - loc.rect.w / 2;
 	loc.rect.y = centerPos.y + spawnRect.y - loc.rect.h / 2;
 
-	double speed = randToOne()*4 + 1;
+	double speed = randToOne() * 4 + 1;
 	double direction = randToOne() * 2 * M_PI;
 	velocity.x = speed * cos(direction);
 	velocity.y = speed * sin(direction);
 
-	angularVelocity = (randToOne()-0.5)/25;
+	angularVelocity = (randToOne() - 0.5) / 25;
 };
 
 void Asteroid::update() {

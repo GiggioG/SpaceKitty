@@ -3,6 +3,7 @@
 #include "Gameplay.h"
 #include "TextureManager.h"
 #include "Presenter.h"
+#include <algorithm>
 
 extern World world;
 
@@ -13,9 +14,12 @@ void Gameplay::init(){
 	started = false;
 	ended = false;
 	cat.init();
-	/// TODO: spawn items and asteroids
-	for(int i=0; i<100; i++){
+	floatRadius = cfgm->cfg["FLOAT_RADIUS"].f;
+	cameraSpeed = cfgm->cfg["CAMERA_SPEED"].f;
+	movementBorderPadding = sqrt(cat.loc.rect.w * cat.loc.rect.w + cat.loc.rect.h * cat.loc.rect.h)/2; /// half of the cat's diagonal
+	for(int i=0; i<5; i++){ /// TODO: seperate loops, spawn rates from config
 		spawnItem();
+		spawnAsteroid();
 	}
 }
 
@@ -30,32 +34,60 @@ void Gameplay::update() {
 		time = (currentTime - timeStarted) / (double)1000;
 	}
 	cat.update(cameraPos);
-	double2 target = {cat.loc.rect.x - Presenter::m_SCREEN_WIDTH/2, cat.loc.rect.y - Presenter::m_SCREEN_HEIGHT/2};
-	int dist = (int)distance({(double)cameraPos.x, (double)cameraPos.y}, target);
-	int speed = 20;
-	if(dist > speed){
-		cameraPos.x += ((int)target.x - cameraPos.x)*speed/dist; // learp
-		cameraPos.y += ((int)target.y - cameraPos.y)*speed/dist; // learp
+	/// calc cameraPos
+	double2 cameraCenter = { cameraPos.x + Presenter::m_SCREEN_WIDTH / 2, cameraPos.y + Presenter::m_SCREEN_HEIGHT / 2 };
+	double2 catCenter = { cat.loc.rect.x + cat.loc.rect.w / 2, cat.loc.rect.y + cat.loc.rect.h / 2 };
+	double dst = distance(cameraCenter, catCenter);
+	cameraPos.x += ceil((catCenter.x - cameraCenter.x) * cameraSpeed * (dst / (Presenter::m_SCREEN_WIDTH / 2 - movementBorderPadding)));
+	cameraPos.y += ceil((catCenter.y - cameraCenter.y) * cameraSpeed * (dst / (Presenter::m_SCREEN_HEIGHT / 2 - movementBorderPadding)));
+	if (catCenter.x < cameraPos.x + movementBorderPadding) {
+		cameraPos.x -= (cameraPos.x + movementBorderPadding) - catCenter.x;
 	}
-	// cameraPos = int2(cat.loc.rect.x, cat.loc.rect.y);
+	if (catCenter.x > cameraPos.x + Presenter::m_SCREEN_WIDTH - movementBorderPadding) {
+		cameraPos.x += catCenter.x - (cameraPos.x + Presenter::m_SCREEN_WIDTH - movementBorderPadding);
+	}
+	if (catCenter.y < cameraPos.y + movementBorderPadding) {
+		cameraPos.y -= (cameraPos.y + movementBorderPadding) - catCenter.y;
+	}
+	if (catCenter.y > cameraPos.y + Presenter::m_SCREEN_HEIGHT - movementBorderPadding) {
+		cameraPos.y += catCenter.y - (cameraPos.y + Presenter::m_SCREEN_HEIGHT - movementBorderPadding);
+	}
+
+	/// old implementation
+	//double2 target = {cat.loc.rect.x - Presenter::m_SCREEN_WIDTH/2, cat.loc.rect.y - Presenter::m_SCREEN_HEIGHT/2};
+	//int dist = (int)distance({(double)cameraPos.x, (double)cameraPos.y}, target);
+	//int speed = 10;
+	//if(dist > speed * 3){
+	//	cameraPos.x += ((int)target.x - cameraPos.x)*speed/dist; // lerp
+	//	cameraPos.y += ((int)target.y - cameraPos.y)*speed/dist; // lerp
+	//}
+	
+	/// update Items and Asteroids
 	Rect allowedRect = getAllowedRect();
 	/// todo: remove (and respawn) asteroids and items if too far away
-	for (list<Item>::iterator it = (--items.end()); it != items.begin(); --it) {
+	vector<list<Item>::iterator> itemsToBeErased;
+	for (list<Item>::iterator it = items.begin(); it != items.end(); ++it) {
 		it->update();
+		double2 center = { it->loc.rect.x + it->loc.rect.w / 2, it->loc.rect.y + it->loc.rect.h / 2 };
 		/// check bounds
-		if ((it->loc.rect.x + it->loc.rect.w / 2) < allowedRect.x) { it->loc.rect.x += allowedRect.w; }
-		if ((it->loc.rect.y + it->loc.rect.h / 2) < allowedRect.y) { it->loc.rect.y += allowedRect.h; }
-		if ((it->loc.rect.x + it->loc.rect.w / 2) > allowedRect.x + allowedRect.w) { it->loc.rect.x -= allowedRect.w; }
-		if ((it->loc.rect.y + it->loc.rect.h / 2) > allowedRect.y + allowedRect.h) { it->loc.rect.y -= allowedRect.h; }
+		if (center.x < allowedRect.x) { it->loc.rect.x += allowedRect.w; }
+		if (center.y < allowedRect.y) { it->loc.rect.y += allowedRect.h; }
+		if (center.x > allowedRect.x + allowedRect.w) { it->loc.rect.x -= allowedRect.w; }
+		if (center.y > allowedRect.y + allowedRect.h) { it->loc.rect.y -= allowedRect.h; }
 		/// check collision with player
 		if (collRotatedRectRotatedRect(it->loc, cat.loc)) {
 			bool successPickup = cat.tryPickup(*it);
-			if(successPickup){ 
+			if(successPickup){
+				itemsToBeErased.push_back(it);
 				spawnItem();
 				continue;
 			}
 		}
 	}
+	for (list<Item>::iterator it : itemsToBeErased) {
+		items.erase(it);
+	}
+	vector<list<Asteroid>::iterator> asteroidsToBeErased;
 	for (list<Asteroid>::iterator it = asteroids.begin(); it != asteroids.end(); ++it) {
 		it->update();
 		/// check bounds
@@ -67,24 +99,48 @@ void Gameplay::update() {
 		if (cat.hittingWithRacketInHand != nullptr) {
 			if (collRotatedRectRotatedRect(cat.racketRange, it->loc)) {
 				cat.breakRacket();
-				asteroids.erase(it);
+				asteroidsToBeErased.push_back(it);
 				continue;
 			}
 		}
 		/// check collision with player
 		if (collRotatedRectRotatedRect(it->loc, cat.loc)) {
-			ended = true;
+			// ended = true; /// TODO
 		}
 	}
-
+	for (list<Asteroid>::iterator it : asteroidsToBeErased) {
+		asteroids.erase(it);
+	}
 }
 
 void Gameplay::draw() {
-	int2 where = {-(cameraPos.x/Presenter::m_SCREEN_WIDTH)*Presenter::m_SCREEN_WIDTH + cameraPos.x, -(cameraPos.y/Presenter::m_SCREEN_HEIGHT)*Presenter::m_SCREEN_HEIGHT + cameraPos.y};
+	Drawable d;
+	d.texture = TextureManager::game_background_texture;
+	int x = cameraPos.x / Presenter::m_SCREEN_WIDTH;
+	int y = cameraPos.y / Presenter::m_SCREEN_HEIGHT;
+	if (cameraPos.x < 0) { x--; }
+	if (cameraPos.y < 0) { y--; }
+	d.rect = { 0, 0, Presenter::m_SCREEN_WIDTH, Presenter::m_SCREEN_HEIGHT };
+	for (int xoff = 0; xoff <= 1; xoff++) {
+		for (int yoff = 0; yoff <= 1; yoff++) {
+			d.rect.x = (x + xoff) * Presenter::m_SCREEN_WIDTH;
+			d.rect.y = (y + yoff) * Presenter::m_SCREEN_HEIGHT;
+			drawObject(d, cameraPos);
+		}
+	}
+
+	/*int2 where = {-(cameraPos.x/Presenter::m_SCREEN_WIDTH)*Presenter::m_SCREEN_WIDTH + cameraPos.x, -(cameraPos.y/Presenter::m_SCREEN_HEIGHT)*Presenter::m_SCREEN_HEIGHT + cameraPos.y};
 	drawObject(TextureManager::game_background_texture, where);
 	drawObject(TextureManager::game_background_texture, int2(where.x - Presenter::m_SCREEN_WIDTH, where.y));
 	drawObject(TextureManager::game_background_texture, int2(where.x, where.y - Presenter::m_SCREEN_HEIGHT));
-	drawObject(TextureManager::game_background_texture, int2(where.x - Presenter::m_SCREEN_WIDTH, where.y - Presenter::m_SCREEN_HEIGHT));
+	drawObject(TextureManager::game_background_texture, int2(where.x - Presenter::m_SCREEN_WIDTH, where.y - Presenter::m_SCREEN_HEIGHT));*/
+
+	for (list<Asteroid>::iterator it = asteroids.begin(); it != asteroids.end(); ++it) {
+		it->draw(cameraPos);
+	}
+	for (list<Item>::iterator it = items.begin(); it != items.end(); ++it) {
+		it->draw(cameraPos);
+	}
 
 	string timeString = to_string(time);
 	drawNum(timeString.substr(0, timeString.size()-3), {20, 20}, 50);
@@ -98,10 +154,9 @@ void Gameplay::destruct() {
 }
 
 Rect Gameplay::getAllowedRect(){
-	return 	cat.loc.rect;
 	return {
-		(double)(cameraPos.x - 1000), (double)(cameraPos.y - 1000),
-		(double)(cameraPos.x + Presenter::m_SCREEN_WIDTH + 1000), (double)(cameraPos.y + Presenter::m_SCREEN_HEIGHT + 1000)
+		(double)(cameraPos.x - floatRadius), (double)(cameraPos.y - floatRadius),
+		Presenter::m_SCREEN_WIDTH + 2*floatRadius, Presenter::m_SCREEN_HEIGHT + 2*floatRadius
 	};
 }
 
@@ -109,6 +164,7 @@ void Gameplay::spawnItem(){
 	Item i;
 	ItemType itemType = (ItemType)((rand() % 4) + 1);
 	i.init(itemType, getAllowedRect().toSdlRect());
+	//std::cout << i.loc.rect.x << ' ' << i.loc.rect.y << '\n';
 	items.push_back(i);
 }
 

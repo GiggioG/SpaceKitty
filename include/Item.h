@@ -25,6 +25,6 @@ public:
 	double2 velocity;
 	double angularVelocity;
 
-	static SDL_Rect getWidthHeight(ItemType item);
+	static double2 getWidthHeight(ItemType item);
 	static bool isPepper(ItemType item);
 };

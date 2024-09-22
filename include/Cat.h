@@ -8,7 +8,7 @@ struct BoostEffect {
 	double extraAcceleration;
 	static struct Compare {
 		bool operator()(const BoostEffect& a, const BoostEffect& b) {
-			return a.timeExpires <= b.timeExpires;
+			return a.timeExpires < b.timeExpires;
 		}
 	};
 };
@@ -35,6 +35,7 @@ private:
 	double engineForce;
 	double accelerationForce, boostAcceleration;
 	double friction;
+	double racketRectWidth, racketRectHeight;
 
 	ItemType leftHand =  ItemType::NONE;
 	ItemType rightHand = ItemType::NONE;
